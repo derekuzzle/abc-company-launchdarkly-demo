@@ -1,0 +1,21 @@
+{
+  "name": "abc-company-launchdarkly-demo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "A small LaunchDarkly release, targeting, and AI Config demo",
+  "engines": { "node": ">=18" },
+  "packageManager": "npm@10.9.2",
+  "scripts": {
+    "start": "node server.js",
+    "kill-switch": "node scripts/kill-switch.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@launchdarkly/ai-node": "0.2.0",
+    "@launchdarkly/ai-openai-messages": "0.3.0",
+    "@launchdarkly/js-client-sdk": "4.11.0",
+    "dotenv": "16.6.1",
+    "express": "4.21.2",
+    "openai": "6.42.0"
+  }
+}

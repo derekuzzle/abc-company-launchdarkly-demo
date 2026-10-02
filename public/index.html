@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f7f5ef">
+  <meta name="description" content="ABC Company support, with a LaunchDarkly-powered live demo of release, targeting, and AI configuration.">
+  <title>ABC Company | Support that stays in step</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/styles.css">
+  <script type="module" src="/app.js"></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="/" aria-label="ABC Company home"><span class="brand-mark" aria-hidden="true">a<span>·</span>b<span>·</span>c</span><span class="brand-name">ABC Company</span></a>
+      <nav aria-label="Main navigation"><a href="#product">Product</a><a href="#demo">Live demo</a><a class="nav-cta" href="#demo">Explore the demo <span aria-hidden="true">↗</span></a></nav>
+    </header>
+
+    <main>
+      <section class="hero" id="product" aria-labelledby="hero-title">
+        <div class="hero-copy">
+          <p class="eyebrow"><span class="eyebrow-dot"></span> SUPPORT, WITHOUT THE WAIT</p>
+          <h1 id="hero-title">Good support<br>moves <em>with you.</em></h1>
+          <p class="hero-intro">Answers when you need them. A helping hand when it matters. Give every customer a clearer way forward with ABC Company.</p>
+          <a class="primary-button" href="#demo">See it in action <span aria-hidden="true">↗</span></a>
+          <div class="hero-proof"><span class="proof-icon" aria-hidden="true">✳</span><span>Thoughtful tools for the people behind every conversation.</span></div>
+        </div>
+        <div class="hero-art" aria-hidden="true">
+          <div class="art-orbit art-orbit-one"></div><div class="art-orbit art-orbit-two"></div>
+          <div class="art-label art-label-top"><span class="tiny-circle"></span> HERE WHEN IT COUNTS</div>
+          <div class="art-bubble art-bubble-one"><span class="bubble-line long"></span><span class="bubble-line short"></span><span class="bubble-line medium"></span></div>
+          <div class="art-bubble art-bubble-two"><span class="sparkle">✳</span><span>How can we help?</span></div>
+          <div class="art-label art-label-bottom">A BETTER WAY TO CONNECT <span>↗</span></div>
+        </div>
+      </section>
+
+      <section class="demo-section" id="demo" aria-labelledby="demo-title">
+        <div class="section-heading"><div><p class="eyebrow">THE EXPERIENCE, IN REAL TIME</p><h2 id="demo-title">See support in motion.</h2></div><p>Change the audience. Change the release. Watch what happens, without refreshing the page.</p></div>
+        <div class="demo-layout">
+          <div class="control-column">
+            <section class="panel context-panel" aria-labelledby="context-title">
+              <div class="panel-top"><span class="panel-index">01 / AUDIENCE</span><span class="panel-symbol" aria-hidden="true">◎</span></div>
+              <h3 id="context-title">Who is visiting?</h3><p class="panel-lead">Select a sample customer to see how targeting responds.</p>
+              <label for="user-select">Viewing as</label><select id="user-select" aria-describedby="context-feedback"></select>
+              <p id="context-feedback" class="context-feedback" role="status">Loading sample customers...</p>
+              <dl id="context-details" class="context-details"></dl>
+            </section>
+            <section class="panel status-panel" aria-labelledby="status-title">
+              <div class="panel-top"><span class="panel-index">02 / RELEASE STATUS</span><span id="connection-chip" class="live-chip inactive"><span></span> <span id="connection-label">CONNECTING</span></span></div>
+              <h3 id="status-title">Behind the switch.</h3><p class="panel-lead">The flag state updates as soon as LaunchDarkly sends a change.</p>
+              <div class="flag-readout"><div><span class="readout-label">release-support-chat</span><strong id="flag-value" aria-live="polite">Connecting...</strong></div><span id="flag-indicator" class="flag-indicator" aria-hidden="true">○</span></div>
+              <div class="log-heading"><span>ACTIVITY LOG</span><span>LOCAL TIME</span></div><ol id="event-log" class="event-log" aria-live="polite" aria-relevant="additions"></ol>
+            </section>
+          </div>
+          <section class="panel chat-panel" aria-labelledby="chat-title">
+            <div class="chat-header"><div class="chat-avatar" aria-hidden="true">✳</div><div><h3 id="chat-title">ABC Support</h3><p>Here to help you move forward</p></div><span class="chat-header-dot" aria-hidden="true"></span></div>
+            <div id="chat-off" class="chat-off"><div class="off-icon" aria-hidden="true">✳</div><h4>Support is standing by.</h4><p id="chat-off-reason">The chat opens when this visitor is included in the release.</p></div>
+            <div id="chat-widget" class="chat-widget" hidden>
+              <div id="messages" class="messages" aria-live="polite"><div class="message assistant"><span class="message-label">ABC SUPPORT</span><p>Hi there. What can we help you with today?</p></div></div>
+              <form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Your message</label><input id="chat-input" name="message" maxlength="500" placeholder="Ask a question..." required><button id="send-button" type="submit" aria-label="Send message">↗</button></form>
+              <div id="reply-meta" class="reply-meta" hidden><strong>RESPONSE DETAILS</strong><dl><div><dt>Mode</dt><dd id="meta-mode"></dd></div><div><dt>Config</dt><dd id="meta-config"></dd></div><div><dt>Variation</dt><dd id="meta-variation"></dd></div><div><dt>Model</dt><dd id="meta-model"></dd></div><div class="prompt-row"><dt>Prompt served</dt><dd id="meta-prompt"></dd></div></dl></div>
+            </div>
+            <div class="chat-footer"><span class="footer-mark" aria-hidden="true">✳</span> Powered by a more thoughtful approach to support</div>
+          </section>
+        </div>
+        <p class="demo-caption"><span aria-hidden="true">↳</span> This is a sample experience. Flag targeting and AI configuration are managed in your LaunchDarkly account.</p>
+      </section>
+    </main>
+    <footer class="site-footer"><span>ABC Company <span class="footer-copyright">© <span id="year"></span></span></span><span>Better conversations begin here.</span></footer>
+  </div>
+</body>
+</html>
