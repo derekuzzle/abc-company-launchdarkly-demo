@@ -24,8 +24,11 @@ You need a LaunchDarkly project and environment, ideally the `test` environment 
 
 1. In LaunchDarkly, select your project and the intended environment, such as `test`. Go to **Create > Flag**. Name it `Release support chat` and set its **Key** to exactly `release-support-chat`. Choose the **Release** template with **Boolean** variations: `true` is on and `false` is off. Leave the flag off initially and make the default on and off variation `false` for the targeting walkthrough.
 2. During creation, check **SDKs using client-side ID**. If you already created the flag, open the flag's **Settings** page and turn on client-side SDK availability there. Without this, the browser only gets the fallback `false` value. See [creating flags](https://launchdarkly.com/docs/home/flags/new).
-3. In **Project settings > Environments**, find the **Client-side ID** for your selected environment. Put that public ID in `LAUNCHDARKLY_CLIENT_SIDE_ID`. It may be sent to a browser. **Never** put a server-side SDK key, OpenAI key, or trigger URL in browser code.
-4. In **Settings > SDK keys** (or the selected project's environment details, depending on your dashboard navigation), find the **server-side SDK key** for that same environment. Put it in `LD_SDK_KEY`. The server uses it for AI Config evaluation only.
+3. Follow the quick SDK-key setup below to supply both credentials from the **same** environment.
+
+### SDK keys: quick setup
+
+In LaunchDarkly, select your project, then **Project settings > Environments > [your environment's three-dot menu] > Show SDK keys**. Copy its **Client-side ID** to `LAUNCHDARKLY_CLIENT_SIDE_ID` and its **SDK key** to `LD_SDK_KEY` in your untracked `.env` file. The client-side ID is browser-safe and powers `release-support-chat`; the SDK key starts with `sdk-`, must stay private, and is used only by the server for `support-chat-assistant`. Use credentials from the **same environment** as the flag and AI Config targeting. For a hosted deployment, set both names as runtime environment variables in the host's secret/settings UI, rather than committing `.env`. Restart the server after changes. The flag also needs **SDKs using client-side ID** enabled. See [LaunchDarkly's key locations](https://launchdarkly.com/docs/home/account/environment/keys).
 
 ### 2. Set local environment and run
 
@@ -103,26 +106,13 @@ npm start
 
 In a second terminal, try `curl -f http://localhost:3000/health` and open the page. Run `npm test` for self-contained smoke tests. No account keys are committed. The app can be run locally without LaunchDarkly or OpenAI values, but live account behavior cannot be verified until the account is configured.
 
-## Push to your empty public GitHub repository
+## GitHub checks and deployment readiness
 
-Replace `YOUR_ACCOUNT/YOUR_EMPTY_REPO` with the URL of the empty repository you own. Do not create a README or initial commit on GitHub first. From an extracted copy of the source bundle, in its project root:
+Source: [derekuzzle/abc-company-launchdarkly-demo](https://github.com/derekuzzle/abc-company-launchdarkly-demo). `.github/workflows/ci.yml` runs `npm ci`, `npm test`, JavaScript syntax checks, and a production-dependency audit on pushes to `main` and pull requests using Node 18 and 22. CI needs **no** LaunchDarkly or provider secrets and cannot prove live account integration. GitHub holds the source, not a deployed website; passing CI does not publish the app.
 
-```sh
-git init -b main
-git add .
-git commit -m "Build ABC Company LaunchDarkly demo"
-git remote add origin https://github.com/YOUR_ACCOUNT/YOUR_EMPTY_REPO.git
-git push -u origin main
-```
+Before a live LaunchDarkly demo, set the two SDK credentials, create and expose the boolean flag to client-side SDKs, test On/Off streaming without reload, exercise the five sample contexts and rules, and test the trigger if your plan supports it. If demonstrating live AI, also configure `support-chat-assistant`, a provider key, and both variations, then verify a reply for a free and an enterprise context. Confirm these against the **deployed runtime**, not just a local `.env`.
 
-If you already have a checkout with a Git commit and an existing `origin`, do **not** replace its remote. Add a separate remote instead:
-
-```sh
-git remote add github https://github.com/YOUR_ACCOUNT/YOUR_EMPTY_REPO.git
-git push -u github main
-```
-
-Check `git status --ignored` first to confirm `.env` and `node_modules` are not staged. Never commit a provider key, SDK key, or trigger URL. No repository URL was supplied with this exercise, so the placeholder cannot be resolved automatically.
+**Public production use requires additional controls.** This is a demo, not an authorization system. `/api/chat` accepts a caller-supplied sample user key and does not enforce `release-support-chat` on the server, authenticate visitors, or rate-limit provider calls. Hiding the widget with a client-side flag is not a security boundary. Add server-side enforcement, authentication and request limits before offering unrestricted public chat with a billable OpenAI key. Never commit SDK keys, provider keys, or trigger URLs.
 
 ## Documentation verified for this sample
 
