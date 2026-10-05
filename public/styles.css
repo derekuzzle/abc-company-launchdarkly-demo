@@ -5,3 +5,4 @@
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 
 .live-chip.inactive{background:#f0f1ee;color:#718080}.live-chip.inactive>span:first-child{background:#a4aeab}
+.chat-access{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 20px;border-top:1px solid var(--line);background:#f7faf7}.chat-access p{margin:0;font-size:11px;line-height:1.5;color:#49635b}.chat-access button,.chat-access a{border:1px solid #c9dbd2;background:#fff;color:var(--deep);border-radius:6px;padding:8px 10px;font-size:11px;font-weight:750;white-space:nowrap}.chat-access button:hover,.chat-access a:hover{background:var(--teal)}

@@ -58,7 +58,8 @@
             <div id="chat-off" class="chat-off"><div class="off-icon" aria-hidden="true">✳</div><h4>Support is standing by.</h4><p id="chat-off-reason">The chat opens when this visitor is included in the release.</p></div>
             <div id="chat-widget" class="chat-widget" hidden>
               <div id="messages" class="messages" aria-live="polite"><div class="message assistant"><span class="message-label">ABC SUPPORT</span><p>Hi there. What can we help you with today?</p></div></div>
-              <form id="chat-form" class="chat-form"><label class="sr-only" for="chat-input">Your message</label><input id="chat-input" name="message" maxlength="500" placeholder="Ask a question..." required><button id="send-button" type="submit" aria-label="Send message">↗</button></form>
+              <div class="chat-access"><p id="access-status" role="status">Checking chat access...</p><a id="login-link" target="_blank" rel="noopener" hidden>Sign in with Manus</a><button id="logout-button" type="button" hidden>Sign out</button></div>
+              <form id="chat-form" class="chat-form" hidden><label class="sr-only" for="chat-input">Your message</label><input id="chat-input" name="message" maxlength="500" placeholder="Ask a question..." required><button id="send-button" type="submit" aria-label="Send message">↗</button></form>
               <div id="reply-meta" class="reply-meta" hidden><strong>RESPONSE DETAILS</strong><dl><div><dt>Mode</dt><dd id="meta-mode"></dd></div><div><dt>Config</dt><dd id="meta-config"></dd></div><div><dt>Variation</dt><dd id="meta-variation"></dd></div><div><dt>Model</dt><dd id="meta-model"></dd></div><div class="prompt-row"><dt>Prompt served</dt><dd id="meta-prompt"></dd></div></dl></div>
             </div>
             <div class="chat-footer"><span class="footer-mark" aria-hidden="true">✳</span> Powered by a more thoughtful approach to support</div>

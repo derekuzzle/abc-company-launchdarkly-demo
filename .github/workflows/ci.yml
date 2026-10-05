@@ -26,6 +26,9 @@ jobs:
       - name: Check JavaScript syntax
         run: |
           node --check server.js
+          node --check auth.js
+          node --check flag.js
+          node --check limits.js
           node --input-type=module --check < public/app.js
           node --check scripts/kill-switch.js
       - name: Audit production dependencies

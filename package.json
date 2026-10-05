@@ -16,8 +16,10 @@
     "@launchdarkly/ai-node": "0.2.0",
     "@launchdarkly/ai-openai-messages": "0.3.0",
     "@launchdarkly/js-client-sdk": "4.11.0",
+    "@launchdarkly/node-server-sdk": "9.14.2",
     "dotenv": "16.6.1",
     "express": "4.22.3",
+    "jose": "5.10.0",
     "openai": "6.42.0"
   }
 }
