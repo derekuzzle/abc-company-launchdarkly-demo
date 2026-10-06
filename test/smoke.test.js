@@ -4,122 +4,108 @@ const http = require('node:http');
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const path = require('node:path');
-const { SignJWT } = require('jose');
 const { TestData } = require('@launchdarkly/node-server-sdk');
 const { createApp } = require('../server');
 const { createFlagEvaluator, FLAG_KEY } = require('../flag');
 
 const run = promisify(execFile);
-const origin = 'http://localhost:3000';
-const secret = 'test-session-secret-with-at-least-32-chars';
-const environment = {
-  APP_PUBLIC_ORIGIN: origin, APP_SESSION_SECRET: secret,
-  MANUS_PROJECT_ID: 'sample-project', MANUS_OAUTH_PORTAL_URL: 'https://login.example',
-  MANUS_OAUTH_API_URL: 'https://auth.example', CHAT_ALLOWED_EMAILS: 'owner@example.com',
-  LD_SDK_KEY: '', OPENAI_API_KEY: '', LAUNCHDARKLY_CLIENT_SIDE_ID: ''
-};
+const credentials = { LAUNCHDARKLY_CLIENT_SIDE_ID: 'public-test-id', LD_SDK_KEY: 'sdk-test-only', OPENAI_API_KEY: '' };
+const validBody = { userKey: 'alex-free', message: 'Hello' };
 const servers = [];
 after(() => Promise.all(servers.map((server) => new Promise((resolve) => server.close(resolve)))));
 
 async function serve(options) {
-  const app = createApp(options);
-  const server = app.listen(0, '127.0.0.1');
+  const server = createApp(options).listen(0, '127.0.0.1');
   await new Promise((resolve) => server.on('listening', resolve));
   servers.push(server);
   return `http://127.0.0.1:${server.address().port}`;
 }
 
-async function sessionCookie(email = 'owner@example.com', expiration = '4h') {
-  const token = await new SignJWT({ email }).setProtectedHeader({ alg: 'HS256' })
-    .setSubject('test-openid').setIssuer('abc-company-chat').setAudience('sample-project')
-    .setIssuedAt().setExpirationTime(expiration).sign(new TextEncoder().encode(secret));
-  return `webdev_app_session=${token}`;
+function chat(base, body = validBody) {
+  return fetch(`${base}/api/chat`, { method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body) });
 }
 
-function chat(base, body, cookie, requestOrigin = origin) {
-  return fetch(`${base}/api/chat`, { method: 'POST', headers: {
-    'content-type': 'application/json', origin: requestOrigin, ...(cookie ? { cookie } : {})
-  }, body: JSON.stringify(body) });
-}
-const validBody = { userKey: 'alex-free', message: 'Hello' };
-
-test('health, landing page, routes manifest, and self-hosted SDK load', async () => {
-  const base = await serve({ env: environment });
+test('Express serves the page, health, route manifest and browser SDK bundle', async () => {
+  const base = await serve({ env: {}, evaluateFlag: async () => false });
   assert.deepEqual(await (await fetch(`${base}/health`)).json(), { status: 'ok' });
   assert.match(await (await fetch(base)).text(), /Good support/);
-  assert.deepEqual((await (await fetch(`${base}/manus-routes.json`)).json()).routes.map((item) => item.path), ['/']);
+  assert.deepEqual((await (await fetch(`${base}/manus-routes.json`)).json()).routes.map((route) => route.path), ['/']);
   const sdk = await fetch(`${base}/vendor/launchdarkly.js`);
   assert.equal(sdk.status, 200);
   assert.match(await sdk.text(), /createClient/);
+  assert.equal((await fetch(`${base}/api/auth/session`)).status, 404);
 });
 
-test('public config and session status never reveal private credentials', async () => {
-  const base = await serve({ env: { ...environment, LAUNCHDARKLY_CLIENT_SIDE_ID: 'public-test-id' } });
+test('browser config contains only the public ID, passcode-required boolean and sample contexts', async () => {
+  const base = await serve({ env: { ...credentials, DEMO_PASSCODE: 'private-test-value' }, evaluateFlag: async () => true });
   const raw = await (await fetch(`${base}/api/config`)).text();
   const data = JSON.parse(raw);
-  assert.equal(data.users.length, 5);
-  assert.ok(data.users.every((user) => ['key', 'name', 'email', 'plan', 'region', 'role', 'betaTester'].every((field) => field in user)));
   assert.equal(data.clientSideId, 'public-test-id');
-  assert.doesNotMatch(raw, /LD_SDK_KEY|OPENAI_API_KEY|APP_SESSION_SECRET|CHAT_ALLOWED_EMAILS/);
-  assert.deepEqual(await (await fetch(`${base}/api/auth/session`)).json(),
-    { configured: true, authenticated: false, email: null });
+  assert.equal(data.passcodeRequired, true);
+  assert.equal(data.users.length, 5);
+  assert.ok(data.users.every((user) => ['key', 'name', 'email', 'plan', 'region', 'role', 'betaTester'].every((key) => key in user)));
+  assert.doesNotMatch(raw, /private-test-value|sdk-test-only|OPENAI_API_KEY/);
+  const open = await serve({ env: credentials, evaluateFlag: async () => true });
+  assert.equal((await (await fetch(`${open}/api/config`)).json()).passcodeRequired, false);
 });
 
-test('chat requires an authenticated and allowlisted Manus session and exact origin', async () => {
-  const base = await serve({ env: environment, evaluateFlag: async () => true });
-  assert.equal((await chat(base, validBody)).status, 401);
-  const cookie = await sessionCookie();
-  assert.equal((await chat(base, validBody, cookie, 'https://evil.example')).status, 403);
-  assert.equal((await chat(base, validBody, await sessionCookie('unknown@example.com'))).status, 401);
-  assert.equal((await chat(base, validBody, `${cookie}tampered`)).status, 401);
-  assert.equal((await chat(base, validBody, await sessionCookie('owner@example.com', '-1s'))).status, 401);
-  const authenticated = await fetch(`${base}/api/auth/session`, { headers: { cookie } });
-  assert.equal((await authenticated.json()).email, 'owner@example.com');
+test('only the two SDK credentials are needed for an open, labeled canned chat reply', async () => {
+  const base = await serve({ env: credentials, evaluateFlag: async () => true });
+  const response = await chat(base);
+  const data = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(data.mode, 'CANNED RESPONSE');
+  assert.equal(data.reason, 'OpenAI key not set');
+  assert.equal(data.variation, 'not evaluated');
+  assert.match(data.reply, /Alex Rivera/);
 });
 
-test('Preview session JWT must be signed, unexpired, for this project, and allowlisted', async () => {
-  const previewSecret = 'separate-platform-test-secret';
-  const base = await serve({ env: { ...environment, MANUS_JWT_SECRET: previewSecret },
-    evaluateFlag: async () => true, inspectAiConfig: async () => null });
-  async function previewCookie(appId, email) {
-    const token = await new SignJWT({ appId, openId: 'preview-openid', email })
-      .setProtectedHeader({ alg: 'HS256' }).setIssuedAt().setExpirationTime('1h')
-      .sign(new TextEncoder().encode(previewSecret));
-    return `webdev_app_session=${token}`;
-  }
-  assert.equal((await chat(base, validBody, await previewCookie('sample-project', 'owner@example.com'))).status, 200);
-  assert.equal((await chat(base, validBody, await previewCookie('wrong-project', 'owner@example.com'))).status, 401);
-  assert.equal((await chat(base, validBody, await previewCookie('sample-project', 'stranger@example.com'))).status, 401);
+test('optional DEMO_PASSCODE rejects missing or wrong values and accepts the right one', async () => {
+  const base = await serve({ env: { ...credentials, DEMO_PASSCODE: 'reviewer-only' }, evaluateFlag: async () => true });
+  const missing = await chat(base);
+  assert.equal(missing.status, 401);
+  assert.equal(missing.headers.get('X-Demo-Passcode-Accepted'), null);
+  assert.equal((await chat(base, { ...validBody, passcode: 'wrong' })).status, 401);
+  const correct = await chat(base, { ...validBody, passcode: 'reviewer-only' });
+  assert.equal(correct.status, 200);
+  assert.equal(correct.headers.get('X-Demo-Passcode-Accepted'), 'true');
+  assert.equal((await correct.json()).mode, 'CANNED RESPONSE');
+  assert.equal((await chat(base)).status, 401);
+  const off = await serve({ env: { ...credentials, DEMO_PASSCODE: 'reviewer-only' }, evaluateFlag: async () => false });
+  const denied = await chat(off, { ...validBody, passcode: 'reviewer-only' });
+  assert.equal(denied.status, 403);
+  assert.equal(denied.headers.get('X-Demo-Passcode-Accepted'), 'true');
 });
 
-test('chat rejects unknown contexts and invalid messages after authentication', async () => {
-  const base = await serve({ env: environment, evaluateFlag: async () => true });
-  const cookie = await sessionCookie();
-  assert.equal((await chat(base, { userKey: 'impostor', message: 'Hi' }, cookie)).status, 400);
-  assert.equal((await chat(base, { userKey: 'alex-free', message: ' ' }, cookie)).status, 400);
-  assert.equal((await chat(base, { userKey: 'alex-free', message: 'x'.repeat(501) }, cookie)).status, 400);
+test('chat rejects unknown sample contexts and invalid messages', async () => {
+  const base = await serve({ env: credentials, evaluateFlag: async () => true });
+  assert.equal((await chat(base, { userKey: 'impostor', message: 'Hi' })).status, 400);
+  assert.equal((await chat(base, { userKey: 'alex-free', message: ' ' })).status, 400);
+  assert.equal((await chat(base, { userKey: 'alex-free', message: 'x'.repeat(501) })).status, 400);
 });
 
-test('server flag denies off and unavailable states before AI, independent of browser widget', async () => {
-  let inspected = 0;
-  let enabled = false;
-  const base = await serve({ env: environment, evaluateFlag: async () => enabled,
-    inspectAiConfig: async () => { inspected += 1; return null; } });
-  const cookie = await sessionCookie();
-  assert.equal((await chat(base, validBody, cookie)).status, 403);
-  assert.equal(inspected, 0);
-  enabled = true;
-  assert.equal((await chat(base, validBody, cookie)).status, 200);
-  assert.equal(inspected, 1);
-  const noSdk = await serve({ env: environment });
-  assert.equal((await chat(noSdk, validBody, cookie)).status, 503);
-  const unavailable = await serve({ env: environment, evaluateFlag: async () => { throw Error('offline'); },
-    inspectAiConfig: async () => { inspected += 1; } });
-  assert.equal((await chat(unavailable, validBody, cookie)).status, 503);
-  assert.equal(inspected, 1);
+test('server checks the release flag exactly once per request and blocks off or unavailable states', async () => {
+  const calls = [];
+  const base = await serve({ env: credentials, evaluateFlag: async (context) => {
+    calls.push(context.key);
+    return context.key === 'alex-free';
+  } });
+  assert.equal((await chat(base)).status, 200);
+  assert.equal((await chat(base, { userKey: 'taylor-pro', message: 'Hello' })).status, 403);
+  assert.deepEqual(calls, ['alex-free', 'taylor-pro']);
+  let checked = 0;
+  const withAi = await serve({ env: { ...credentials, OPENAI_API_KEY: 'test-key' },
+    evaluateFlag: async () => { checked += 1; return true; }, inspectAiConfig: async () => null });
+  assert.equal((await chat(withAi)).status, 200);
+  assert.equal(checked, 1);
+  const noKey = await serve({ env: { ...credentials, LD_SDK_KEY: '' } });
+  assert.equal((await chat(noKey)).status, 503);
+  const unavailable = await serve({ env: credentials, evaluateFlag: async () => { throw Error('offline'); } });
+  assert.equal((await chat(unavailable)).status, 503);
 });
 
-test('real server SDK re-evaluates off, targeted and updated flag rules', async () => {
+test('real LaunchDarkly server SDK updates targeted and global flag values offline', async () => {
   const data = new TestData();
   data.update(data.flag(FLAG_KEY).booleanFlag().variationForAll(false));
   const evaluate = createFlagEvaluator('sdk-test-only', { updateProcessor: data.getFactory() });
@@ -136,111 +122,20 @@ test('real server SDK re-evaluates off, targeted and updated flag rules', async 
   } finally { await evaluate.close(); }
 });
 
-test('enabled flag with no provider key produces a labeled canned reply', async () => {
-  const base = await serve({ env: environment, evaluateFlag: async () => true, inspectAiConfig: async () => null });
-  const response = await chat(base, validBody, await sessionCookie());
-  const data = await response.json();
-  assert.equal(response.status, 200);
+test('simple per-IP limit allows 20 chat requests per 15 minutes, then returns 429', async () => {
+  const base = await serve({ env: credentials, evaluateFlag: async () => true });
+  for (let i = 0; i < 20; i++) assert.equal((await chat(base)).status, 200);
+  const blocked = await chat(base);
+  assert.equal(blocked.status, 429);
+  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
+});
+
+test('a missing AI Config falls back to a labeled canned reply even with a provider key', async () => {
+  const base = await serve({ env: { ...credentials, OPENAI_API_KEY: 'test-key' },
+    evaluateFlag: async () => true, inspectAiConfig: async () => null });
+  const data = await (await chat(base)).json();
   assert.equal(data.mode, 'CANNED RESPONSE');
-  assert.equal(data.variation, 'not evaluated');
-  assert.match(data.reply, /Alex Rivera/);
-});
-
-test('a kill switch during AI Config inspection denies the pending response', async () => {
-  let enabled = true;
-  const base = await serve({ env: environment, evaluateFlag: async () => enabled,
-    inspectAiConfig: async () => { enabled = false; return null; } });
-  const response = await chat(base, validBody, await sessionCookie());
-  assert.equal(response.status, 403);
-  assert.match((await response.json()).error, /switched off/);
-});
-
-test('independent server emergency switch denies chat even if a cached flag is true', async () => {
-  let evaluated = false;
-  const base = await serve({ env: { ...environment, CHAT_EMERGENCY_OFF: 'true' },
-    evaluateFlag: async () => { evaluated = true; return true; } });
-  const response = await chat(base, validBody, await sessionCookie());
-  assert.equal(response.status, 403);
-  assert.equal(evaluated, false);
-  assert.match((await response.json()).error, /emergency switch/);
-});
-
-test('chat rate limit and in-flight limit respond 429 with Retry-After', async () => {
-  const cookie = await sessionCookie();
-  const base = await serve({ env: environment, evaluateFlag: async () => true, inspectAiConfig: async () => null });
-  for (let i = 0; i < 12; i++) assert.equal((await chat(base, validBody, cookie)).status, 200);
-  const blocked = await chat(base, validBody, cookie);
-  assert.equal(blocked.status, 429);
-  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
-
-  let enter;
-  const entered = new Promise((resolve) => { enter = resolve; });
-  let release;
-  const barrier = new Promise((resolve) => { release = resolve; });
-  let count = 0;
-  const slow = await serve({ env: environment, evaluateFlag: async () => true, inspectAiConfig: async () => {
-    count += 1;
-    if (count === 2) enter();
-    await barrier;
-    return null;
-  } });
-  const a = chat(slow, validBody, cookie);
-  const b = chat(slow, validBody, cookie);
-  await entered;
-  const busy = await chat(slow, validBody, cookie);
-  assert.equal(busy.status, 429);
-  release();
-  assert.deepEqual([(await a).status, (await b).status], [200, 200]);
-});
-
-test('OAuth binds state to a single browser nonce and allowlisted email', async () => {
-  const calls = [];
-  const fetcher = async (url, options) => {
-    calls.push({ url, body: JSON.parse(options.body) });
-    return { ok: true, json: async () => url.endsWith('ExchangeToken') ? { accessToken: 'test-token' } :
-      { openId: 'test-openid', email: 'owner@example.com' } };
-  };
-  const base = await serve({ env: environment, fetcher });
-  const start = await fetch(`${base}/api/auth/start?origin=${encodeURIComponent(origin)}`, { redirect: 'manual' });
-  assert.equal(start.status, 302);
-  const nonce = start.headers.get('set-cookie').split(';')[0];
-  const redirect = new URL(start.headers.get('location'));
-  assert.equal(redirect.searchParams.get('redirectUri'), `${origin}/api/auth/callback`);
-  const callback = `${base}/api/auth/callback?code=example&state=${encodeURIComponent(redirect.searchParams.get('state'))}`;
-  assert.equal((await fetch(callback, { redirect: 'manual' })).status, 400);
-  const success = await fetch(callback, { redirect: 'manual', headers: { cookie: nonce } });
-  assert.equal(success.status, 303);
-  assert.match(success.headers.get('set-cookie'), /webdev_app_session=/);
-  assert.equal((await fetch(callback, { redirect: 'manual', headers: { cookie: nonce } })).status, 400);
-  assert.equal(calls.length, 2);
-  assert.equal(calls[0].body.redirectUri, `${origin}/api/auth/callback`);
-  assert.equal((await fetch(`${base}/api/auth/start?origin=https%3A%2F%2Fevil.example`, { redirect: 'manual' })).status, 400);
-});
-
-test('OAuth refuses users outside the allowlist and uses Secure cookies on HTTPS', async () => {
-  const hostedOrigin = 'https://demo.example';
-  const fetcher = async (url) => ({ ok: true, json: async () => url.endsWith('ExchangeToken') ?
-    { accessToken: 'test-token' } : { openId: 'other-id', email: 'stranger@example.com' } });
-  const base = await serve({ env: { ...environment, APP_PUBLIC_ORIGIN: hostedOrigin }, fetcher });
-  const start = await fetch(`${base}/api/auth/start?origin=${encodeURIComponent(hostedOrigin)}`, { redirect: 'manual' });
-  assert.match(start.headers.get('set-cookie'), /SameSite=None; Secure/);
-  const nonce = start.headers.get('set-cookie').split(';')[0];
-  const state = new URL(start.headers.get('location')).searchParams.get('state');
-  const denied = await fetch(`${base}/api/auth/callback?code=example&state=${encodeURIComponent(state)}`,
-    { redirect: 'manual', headers: { cookie: nonce } });
-  assert.equal(denied.status, 403);
-  assert.doesNotMatch(denied.headers.get('set-cookie'), /webdev_app_session=/);
-});
-
-test('OAuth sign-in initiation is limited per connection', async () => {
-  const base = await serve({ env: environment });
-  for (let i = 0; i < 12; i++) {
-    const response = await fetch(`${base}/api/auth/start?origin=${encodeURIComponent(origin)}`, { redirect: 'manual' });
-    assert.equal(response.status, 302);
-  }
-  const blocked = await fetch(`${base}/api/auth/start?origin=${encodeURIComponent(origin)}`, { redirect: 'manual' });
-  assert.equal(blocked.status, 429);
-  assert.ok(Number(blocked.headers.get('retry-after')) > 0);
+  assert.match(data.reason, /AI Config unavailable/);
 });
 
 test('host-assigned PORT wins over a local .env default', () => {

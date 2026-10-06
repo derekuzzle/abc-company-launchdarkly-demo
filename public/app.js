@@ -9,7 +9,9 @@ let users = [];
 let activeUser;
 let client;
 let switchNumber = 0;
-let chatAuthorized = false;
+let passcodeRequired = false;
+let passcode = '';
+let passcodeAccepted = false;
 
 function logEvent(text, tone = 'neutral') {
   const item = document.createElement('li');
@@ -88,43 +90,16 @@ function addMessage(text, who) {
   return body;
 }
 
-async function refreshAccess() {
-  try {
-    const response = await fetch('/api/auth/session', { cache: 'no-store', credentials: 'same-origin' });
-    if (!response.ok) throw new Error('Could not check chat access.');
-    const status = await response.json();
-    chatAuthorized = status.authenticated;
-    $('chat-form').hidden = !chatAuthorized;
-    $('login-link').hidden = chatAuthorized || !status.configured;
-    $('logout-button').hidden = !chatAuthorized;
-    $('access-status').textContent = chatAuthorized ? `Signed in as ${status.email}` :
-      status.configured ? 'Sign in with an invited Manus account to send a message.' :
-        'Chat access is not configured on this server.';
-  } catch {
-    chatAuthorized = false;
-    $('chat-form').hidden = true;
-    $('login-link').hidden = true;
-    $('logout-button').hidden = true;
-    $('access-status').textContent = 'Chat access could not be checked.';
-  }
-}
-
-$('login-link').href = `/api/auth/start?origin=${encodeURIComponent(window.location.origin)}`;
-$('logout-button').addEventListener('click', async () => {
-  try {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    $('reply-meta').hidden = true;
-    $('messages').replaceChildren();
-    addMessage('Hi there. What can we help you with today?', 'assistant');
-  } finally { await refreshAccess(); }
-});
-window.addEventListener('focus', refreshAccess);
-
 $('chat-form').addEventListener('submit', async (event) => {
   event.preventDefault();
   const input = $('chat-input');
   const message = input.value.trim();
-  if (!message || !activeUser || !chatAuthorized) return;
+  const suppliedPasscode = passcodeRequired && !passcodeAccepted ? $('demo-passcode').value : passcode;
+  if (!message || !activeUser) return;
+  if (passcodeRequired && !suppliedPasscode) {
+    $('demo-passcode').focus();
+    return;
+  }
   addMessage(message, 'visitor');
   input.value = '';
   input.disabled = true;
@@ -132,11 +107,24 @@ $('chat-form').addEventListener('submit', async (event) => {
   const reply = addMessage('Thinking...', 'assistant');
   try {
     const response = await fetch('/api/chat', {
-      method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, userKey: activeUser.key })
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, userKey: activeUser.key, passcode: suppliedPasscode })
     });
+    if (passcodeRequired && response.headers.get('X-Demo-Passcode-Accepted') === 'true') {
+      passcode = suppliedPasscode;
+      passcodeAccepted = true;
+      $('demo-passcode').value = '';
+      $('demo-passcode').required = false;
+      $('passcode-field').hidden = true;
+    }
     const data = await response.json();
-    if (response.status === 401) await refreshAccess();
+    if (response.status === 401 && passcodeRequired) {
+      passcode = '';
+      passcodeAccepted = false;
+      $('demo-passcode').value = '';
+      $('passcode-field').hidden = false;
+      $('demo-passcode').required = true;
+    }
     if (response.status === 403 && data.error?.includes('Chat is off')) setFlag(false, 'Server flag check');
     if (!response.ok) throw new Error(data.error || 'Unable to send your message.');
     reply.textContent = data.reply;
@@ -150,23 +138,25 @@ $('chat-form').addEventListener('submit', async (event) => {
   } finally {
     input.disabled = false;
     $('send-button').disabled = false;
-    input.focus();
+    (passcodeRequired && !passcodeAccepted ? $('demo-passcode') : input).focus();
   }
 });
 
 async function start() {
   $('year').textContent = new Date().getFullYear();
-  void refreshAccess();
   try {
     const response = await fetch('/api/config');
     if (!response.ok) throw new Error('Could not load app configuration.');
     const config = await response.json();
+    passcodeRequired = config.passcodeRequired;
+    $('passcode-field').hidden = !passcodeRequired;
+    $('demo-passcode').required = passcodeRequired;
     users = config.users;
     for (const user of users) userSelect.add(new Option(`${user.name} · ${user.plan}${user.betaTester ? ' · beta' : ''}`, user.key));
     displayContext(users[0]);
     userSelect.addEventListener('change', switchUser);
     if (!config.clientSideId) {
-      setFlag(null, 'Not configured. Add a client-side ID to the runtime.');
+      setFlag(null, 'Not configured. Add a client-side ID to .env.');
       return;
     }
     // createClient creates one browser client for this LaunchDarkly environment and visitor.
