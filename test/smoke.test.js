@@ -36,7 +36,9 @@ test('importing the server with SDK keys set exits without starting an SDK conne
 test('Express serves the page, health, route manifest and browser SDK bundle', async () => {
   const base = await serve({ env: {}, evaluateFlag: async () => false });
   assert.deepEqual(await (await fetch(`${base}/health`)).json(), { status: 'ok' });
-  assert.match(await (await fetch(base)).text(), /Good support/);
+  const html = await (await fetch(base)).text();
+  assert.match(html, /Good support/);
+  assert.match(html, /<span class="brand-mark" aria-hidden="true">ABC<\/span>/);
   assert.deepEqual((await (await fetch(`${base}/manus-routes.json`)).json()).routes.map((route) => route.path), ['/']);
   const sdk = await fetch(`${base}/vendor/launchdarkly.js`);
   assert.equal(sdk.status, 200);

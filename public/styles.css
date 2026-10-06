@@ -6,3 +6,4 @@
 
 .live-chip.inactive{background:#f0f1ee;color:#718080}.live-chip.inactive>span:first-child{background:#a4aeab}
 .chat-form{display:block}.chat-input-row{display:flex;gap:9px}.passcode-field{padding-bottom:12px}.passcode-field label{display:block;margin-bottom:6px;font-size:11px;font-weight:700;color:var(--deep)}.passcode-field input{width:100%;background:#fbfcfa}
+.brand-mark{flex:0 0 40px;white-space:nowrap;line-height:1;letter-spacing:.02em;overflow:hidden}
