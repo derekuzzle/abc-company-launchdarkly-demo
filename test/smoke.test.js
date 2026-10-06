@@ -26,6 +26,13 @@ function chat(base, body = validBody) {
     body: JSON.stringify(body) });
 }
 
+test('importing the server with SDK keys set exits without starting an SDK connection', async () => {
+  const { stdout } = await run(process.execPath, ['-e', "require('./server'); console.log('loaded')"], {
+    cwd: path.join(__dirname, '..'), env: { ...process.env, LD_SDK_KEY: 'sdk-local-test-placeholder' }, timeout: 2500
+  });
+  assert.match(stdout, /loaded/);
+});
+
 test('Express serves the page, health, route manifest and browser SDK bundle', async () => {
   const base = await serve({ env: {}, evaluateFlag: async () => false });
   assert.deepEqual(await (await fetch(`${base}/health`)).json(), { status: 'ok' });

@@ -129,10 +129,8 @@ function createApp({ env = process.env, evaluateFlag, inspectAiConfig } = {}) {
   return app;
 }
 
-const app = createApp();
 if (require.main === module) {
   const port = Number(process.env.PORT) || 3000;
-  app.listen(port, '0.0.0.0', () => console.log(`ABC Company demo listening on ${port}`));
+  createApp().listen(port, '0.0.0.0', () => console.log(`ABC Company demo listening on ${port}`));
 }
-module.exports = app;
-module.exports.createApp = createApp;
+module.exports = { createApp };
