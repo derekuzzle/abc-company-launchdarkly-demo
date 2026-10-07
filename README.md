@@ -83,12 +83,12 @@ An individual target takes priority over custom rules, and a globally Off flag o
 These steps are optional. They use the same LaunchDarkly environment and an OpenAI key that can access your chosen models.
 
 1. Under **Agents > Configs**, create a **Completion** config named `Support chat assistant` with exact key `support-chat-assistant`.
-2. Add variation `concise-support`, provider **OpenAI**, model `gpt-4o-mini` (or an accessible model), with system message: `You are ABC Company's helpful support assistant. Answer in two concise sentences. If you do not know, say so and suggest contacting the team.`
-3. Add variation `guided-support`, provider **OpenAI**, model `gpt-4o` (or an accessible model), with system message: `You are ABC Company's helpful support assistant. Give clear, practical steps, then ask one useful follow-up question. Do not invent account-specific details.`
+2. Add variation `concise-support`, provider **OpenAI**, model `gpt-5-mini` (or an accessible model), with system message: `You are ABC Company's helpful support assistant. Answer in two concise sentences. If you do not know, say so and suggest contacting the team. Do not invent contact details such as email addresses, phone numbers, or web links.`
+3. Add variation `guided-support`, provider **OpenAI**, model `gpt-5` (or an accessible model), with system message: `You are ABC Company's helpful support assistant. Give clear, practical steps, then ask one useful follow-up question. Do not invent account-specific details. Do not invent contact details such as email addresses, phone numbers, or web links.`
 4. In the config's **Targeting** tab, serve `concise-support` by default and `guided-support` when `user.plan` **is one of** `enterprise`.
 5. Set `OPENAI_API_KEY` in `.env`.
 6. Restart `npm start` to load the new key.
-7. Turn `release-support-chat` On for Alex and Jordan, send a message as each, and compare **LIVE AI CONFIG**, variation, model, and prompt details under each reply.
+7. Turn `release-support-chat` On for Sam and Jordan, send a message as each, and compare **LIVE AI CONFIG**, variation, model, and prompt details under each reply. Sam (free plan) should get concise-support and Jordan (enterprise) should get guided-support.
 
 If AgentControl or the provider key is unavailable, leave `OPENAI_API_KEY` empty. The app still demonstrates Parts 1 and 2 and returns labeled canned replies when the server flag permits chat.
 
