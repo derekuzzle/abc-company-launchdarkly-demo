@@ -13,9 +13,9 @@ Built with AI assistance (Manus) and reviewed by me, the exercise submitter.
 
 ## Setup
 
-1. In LaunchDarkly, create a **Boolean** flag named `Release support chat` with exact key `release-support-chat`, variations `true` and `false`, and default/off variation `false`.
-2. Enable **SDKs using client-side ID** for the flag, either during creation or in the flag's Settings.
-3. In **Organization settings > Security > SDK keys**, select the same project and environment and locate its **Client-side ID** and private **SDK key**.
+1. Create a **Boolean** flag named `Release support chat` with key `release-support-chat` (`true`/`false`). Its Default rule initially serves `true`.
+2. In **Create flag**, click **Server only** at the bottom and tick **Client-side SDKs** under **SDK availability**. The flag's right panel then says **Available on client-side SDKs**.
+3. On **Targeting**, open the environment tab's three-dot menu (for example **Test**) and choose **View SDK keys**. Copy its **Client-side ID** and private **SDK key**.
 4. Clone the repository:
    ```sh
    git clone https://github.com/derekuzzle/abc-company-launchdarkly-demo.git
@@ -39,6 +39,8 @@ Built with AI assistance (Manus) and reviewed by me, the exercise submitter.
    ```
 10. Open `http://localhost:3000` and select **Live demo**.
 
+Windows PowerShell: if `npm` says "running scripts is disabled", use `npm.cmd install`, `npm.cmd start`, and `npm.cmd run kill-switch`.
+
 Keep `.env` out of Git. The client-side ID is public; the server SDK key starts with `sdk-` and must stay private.
 
 ## Part 1: release and remediate
@@ -46,7 +48,7 @@ Keep `.env` out of Git. The client-side ID is public; the server SDK key starts 
 1. In the flag's **Targeting** tab for your chosen environment, turn it **On**, serve `true` by default, then **Review and save**. The widget appears and its status log records the update without a page reload.
 2. Send a chat message. With no `OPENAI_API_KEY`, the reply says **CANNED RESPONSE**.
 3. Turn the flag **Off**, then **Review and save**. The widget disappears and the log records another timestamped update; new direct chat requests return HTTP 403.
-4. If Generic triggers are available, create one on `release-support-chat` in that environment with action **turn flag off**. Copy its unique URL when LaunchDarkly shows it.
+4. If available, on **Targeting** open the environment tab's three-dot menu > **Configuration in environment**, then scroll to **Triggers**. Choose **Generic trigger**, action **Update flag targeting to Off**, then **Save Trigger**. Copy the URL immediately; it is shown only once.
 5. Put that URL in `.env` as `LAUNCHDARKLY_TRIGGER_URL`.
 6. Turn the flag On again, then run `npm run kill-switch` to send the trigger's POST request. The widget should close without refreshing.
 
@@ -66,12 +68,12 @@ The **Viewing as** selector calls LaunchDarkly `identify` and shows each sample 
 
 All five are `kind: user` contexts and also include the corresponding `name` and `email` shown in the page inspector.
 
-1. Turn the flag On with its default rule serving `false`.
-2. Under **Targeting > Target individuals**, serve `true` to the `user` context with key `alex-free`.
+1. On **Targeting**, click **Edit** on **Default rule**, change `true` to `false`, and save before adding targets or rules. Keep the flag On.
+2. Click **+** between **Flag is On** and **Default rule**, choose **Target individuals**, and serve `true` to `user` key `alex-free`.
 3. Switch between Alex and Taylor in the app. Alex gets chat; Taylor does not, without reloading.
 4. Remove Alex's individual target before testing attribute rules alone.
-5. Add a custom `user` rule: `plan` **is one of** `enterprise`, serving `true`.
-6. Add another custom `user` rule: `betaTester` **is one of** boolean `true`, serving `true`.
+5. Click the same **+** > **Build a custom rule** and serve `true` to `user` contexts where `plan` **is one of** `enterprise`.
+6. Click **+** > **Build a custom rule** again and serve `true` where `betaTester` **is one of** boolean `true`.
 7. Switch through the five contexts. Jordan, Maya, and Sam get chat; Alex and Taylor do not.
 
 An individual target takes priority over custom rules, and a globally Off flag overrides both.
@@ -107,7 +109,7 @@ Set `DEMO_PASSCODE` when hosting a copy with a billable `OPENAI_API_KEY`. The ch
 
 ## Troubleshooting
 
-- **Widget stays hidden:** Check the flag key, selected environment, client-side ID, **SDKs using client-side ID** setting, global On state, and targeting rule. A missing flag uses fallback `false`.
+- **Widget stays hidden:** Check the flag key, environment, client-side ID, **Available on client-side SDKs** indicator, global On state, and targeting rule. A missing flag uses fallback `false`.
 - **Browser shows chat but sending returns 403:** Confirm `LD_SDK_KEY` belongs to the same environment as the browser ID and that the chosen context gets `true`. The server checks the flag independently.
 - **Sending returns 503:** The server could not initialize or evaluate its flag; check `LD_SDK_KEY` and network access.
 - **Sending returns 401:** The configured `DEMO_PASSCODE` is missing or incorrect. Leave it empty for an open local demo.
